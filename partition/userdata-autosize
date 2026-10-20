@@ -1,0 +1,70 @@
+#!/bin/sh
+
+[ -e /etc/.userdata_ready ] && exit 0
+[ -b /dev/mmcblk0 ] || exit 0
+command -v parted >/dev/null 2>&1 || exit 0
+
+DISK=/dev/mmcblk0
+LABEL=UserData
+
+# already present? (by GPT name, not by partition number)
+NUM=$(parted -s "$DISK" print 2>/dev/null | awk -v n="$LABEL" '$0 ~ n {print $1; exit}')
+if [ -n "$NUM" ]; then
+	touch /etc/.userdata_ready
+	exit 0
+fi
+
+# start of the biggest free gap
+START=$(parted -s "$DISK" unit MB print free 2>/dev/null |
+	awk '/Free Space/ {v = $1} END {print v}')
+[ -n "$START" ] || exit 0
+
+# needs at least 64 MiB to be worth it
+FREE_MB=$(parted -s "$DISK" unit MB print free 2>/dev/null |
+	awk '/Free Space/ {if ($3 > m) m = $3} END {printf "%d", m}')
+[ "${FREE_MB:-0}" -ge 64 ] || {
+	touch /etc/.userdata_ready
+	exit 0
+}
+
+logger -t userdata "fitting GPT to disk end, creating $LABEL from ${START}MB"
+
+printf 'print\nOK\nFix\nmkpart %s ext4 %s 100%%\nquit\n' "$LABEL" "$START" |
+	parted ---pretend-input-tty "$DISK" >/dev/null 2>&1
+
+NUM=$(parted -s "$DISK" print 2>/dev/null | awk -v n="$LABEL" '$0 ~ n {print $1; exit}')
+[ -n "$NUM" ] || {
+	logger -t userdata "partition was not created, giving up"
+	exit 0
+}
+
+DEV="/dev/mmcblk0p$NUM"
+[ -b "$DEV" ] || {
+	logger -t userdata "$DEV missing, giving up"
+	exit 0
+}
+
+if ! blkid -s TYPE -o value "$DEV" 2>/dev/null | grep -q .; then
+	mkfs.ext4 -F -L "$LABEL" "$DEV" >/dev/null 2>&1
+	logger -t userdata "formatted $DEV as ext4"
+else
+	logger -t userdata "$DEV already has a filesystem, left untouched"
+fi
+
+mkdir -p /mnt/UserData
+mountpoint -q /mnt/UserData || mount "$DEV" /mnt/UserData 2>/dev/null
+
+uci -q delete fstab.mnt_userdata 2>/dev/null
+uci set fstab.mnt_userdata=mount
+uci set fstab.mnt_userdata.target='/mnt/UserData'
+uci set fstab.mnt_userdata.device="$DEV"
+uci set fstab.mnt_userdata.fstype='ext4'
+uci set fstab.mnt_userdata.options='rw,noatime'
+uci set fstab.mnt_userdata.enabled='1'
+uci commit fstab
+
+logger -t userdata "mounted $DEV on /mnt/UserData (persisted in fstab)"
+
+sync
+touch /etc/.userdata_ready
+exit 0

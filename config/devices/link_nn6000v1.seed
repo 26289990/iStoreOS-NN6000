@@ -1,0 +1,3 @@
+# Link NN6000 v1 - 3-port, 1GB RAM (wifi + no-wifi)
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v1-nowifi=y

@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# 提高 uhttpd 并发请求槽位（默认 3 -> 20）
+# 修复"XHR request aborted by browser"
+
+uci -q get uhttpd.main >/dev/null 2>&1 || exit 0
+
+uci set uhttpd.main.max_requests='20'
+uci commit uhttpd
+
+pidof uhttpd >/dev/null 2>&1 && /etc/init.d/uhttpd restart >/dev/null 2>&1
+
+exit 0
