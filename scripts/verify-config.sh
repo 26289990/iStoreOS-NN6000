@@ -41,31 +41,9 @@ fi
 grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y' .config \
 	|| { echo "::error::initramfs image is disabled; TFTP first-install image will be missing"; FAIL=1; }
 
-HARD="
-$(cat "$REPO_DIR/config/packages.list")
-luci-app-store
-luci-i18n-quickstart-zh-cn
-taskd
-luci-lib-taskd
-luci-lib-xterm
-mount-utils
-block-mount
-lsblk
-parted
-fdisk
-luci
-luci-app-firewall
-luci-theme-argon
-docker
-ttyd
-luci-app-ttyd
-kmod-tun
-iperf3
-wireguard-tools
-irqbalance
-luci-app-sqm
-kmod-ipt-nat6
-"
+HARD=$(sed -n 's/^CONFIG_PACKAGE_\([^=]*\)=y$/\1/p' \
+	"$REPO_DIR/config/nn6000.seed" \
+	"$REPO_DIR/config/devices/"*.seed)
 MISSING=""
 for p in $HARD; do
 	if grep -q "^CONFIG_PACKAGE_${p}=y" .config; then
