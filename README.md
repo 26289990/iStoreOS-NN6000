@@ -72,3 +72,7 @@ Qualcomm CodeLinaro（`git.codelinaro.org/clo/qsdk/oss/lklm/*`）拉取；
 （各 pin 到一个内核 6.12 可用的提交），NSS 固件来自
 [qosmio/qca-sdk-nss-fw](https://github.com/qosmio/qca-sdk-nss-fw)，
 EIP-197 固件沿用 OpenWrt 的 `nss-eip-firmware`。
+
+## 界面预览
+
+![固件界面预览](Preview.png)
