@@ -53,6 +53,12 @@ jobs:
           echo "commit_hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           echo "commit_date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
           echo "build_date=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')" >> "$GITHUB_OUTPUT"
+          # kernel version lives in target/linux/generic/kernel-<patchver>
+          KV=""
+          if [ -f target/linux/generic/kernel-6.12 ]; then
+            KV=$(grep -m1 '^LINUX_VERSION-6.12' target/linux/generic/kernel-6.12 | sed 's/.*= *//' | tr -d '[:space:]')
+          fi
+          echo "kernel_version=6.12${KV}" >> "$GITHUB_OUTPUT"
 
       - name: Install build dependencies
         run: |
@@ -185,4 +191,5 @@ jobs:
             - **平台**: qualcommax/ipq60xx (ipq6000)
             - **iStoreOS 分支**: ${{ env.ISTOREOS_BRANCH }}
             - **iStoreOS 提交**: ${{ steps.info.outputs.commit_hash }} (${{ steps.info.outputs.commit_date }})
+            - **内核版本**: ${{ steps.info.outputs.kernel_version }}
             - **编译日期**: ${{ steps.info.outputs.build_date }}
