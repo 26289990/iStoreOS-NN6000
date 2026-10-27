@@ -41,21 +41,48 @@ fi
 grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y' .config \
 	|| { echo "::error::initramfs image is disabled; TFTP first-install image will be missing"; FAIL=1; }
 
+# ------------------------------------------------------------
+# 可选插件（来自第三方 feed）：被 defconfig 丢掉只警告，不中断流程。
+# 其余在 seed 里写了 =y 的包仍然是必需的，缺失则报错。
+# 注意：名字两侧必须保留空格。
+# ------------------------------------------------------------
+SOFT=" luci-app-passwall luci-i18n-passwall-zh-cn luci-app-openclash luci-app-3cat luci-app-vsftpd luci-app-wechatpush luci-app-dufs "
+
 HARD=$(sed -n 's/^CONFIG_PACKAGE_\([^=]*\)=y$/\1/p' \
 	"$REPO_DIR/config/nn6000.seed" \
 	"$REPO_DIR/config/devices/"*.seed)
 MISSING=""
+SOFT_MISSING=""
 for p in $HARD; do
 	if grep -q "^CONFIG_PACKAGE_${p}=y" .config; then
 		echo "  ok      $p"
 	else
-		echo "  MISSING $p"
-		MISSING="$MISSING $p"
+		case "$SOFT" in
+		*" $p "*)
+			echo "  OPTIONAL-MISSING $p"
+			SOFT_MISSING="$SOFT_MISSING $p"
+			;;
+		*)
+			echo "  MISSING $p"
+			MISSING="$MISSING $p"
+			;;
+		esac
 	fi
 done
+if [ -n "$SOFT_MISSING" ]; then
+	echo "::warning::Optional packages dropped by defconfig (build continues):$SOFT_MISSING"
+fi
 if [ -n "$MISSING" ]; then
 	echo "::error::Required packages were dropped by defconfig:$MISSING"
 	FAIL=1
+fi
+
+# ------------------------------------------------------------
+# smartdns / daed 不应出现在最终配置里（仅提示，不中断）
+# ------------------------------------------------------------
+if grep -qE '^CONFIG_PACKAGE_(daed|luci-app-daed|dae)=y' .config; then
+	echo "::warning::daed/dae is still selected in .config; it failed to build before"
+	grep -E '^CONFIG_PACKAGE_(daed|luci-app-daed|dae)=y' .config || true
 fi
 
 exit $FAIL
