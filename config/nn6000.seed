@@ -253,11 +253,8 @@ CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=y
 CONFIG_PACKAGE_luci-app-openclash=y
 CONFIG_PACKAGE_luci-i18n-openclash-zh-cn=y
 
-# kenzok8/openwrt-daede
+# kenzok8/openwrt-daede（含 daed + dae，UI 可切换）
 CONFIG_PACKAGE_luci-app-daede=y
-# 若实际包名是 luci-app-daed，改成下面这行
-# CONFIG_PACKAGE_luci-app-daed=y
-CONFIG_PACKAGE_luci-i18n-daed-zh-cn=y
 
 CONFIG_PACKAGE_luci-app-3cat=y
 CONFIG_PACKAGE_luci-app-vsftpd=y
