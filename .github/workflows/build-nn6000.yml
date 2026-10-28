@@ -29,13 +29,28 @@ jobs:
   build:
     name: Build ${{ github.event.inputs.device }} firmware
     runs-on: ubuntu-24.04
-    timeout-minutes: 720
+    # GitHub-hosted runners are hard-capped at 6h (360 min); 720 had no effect.
+    timeout-minutes: 350
     env:
       ISTOREOS_BRANCH: ${{ github.event.inputs.istoreos_ref }}
       CCACHE_DIR: ${{ github.workspace }}/istoreos/.ccache
       CCACHE_MAXSIZE: 1G
 
     steps:
+      - name: Free up disk space
+        run: |
+          set -o pipefail
+          echo "::group::Before cleanup"
+          df -h /
+          free -h
+          echo "::endgroup::"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo docker image prune -af || true
+          echo "::group::After cleanup"
+          df -h /
+          echo "::endgroup::"
+
       - name: Checkout port repository
         uses: actions/checkout@v6.0.2
 
@@ -127,14 +142,22 @@ jobs:
         run: |
           set -o pipefail
           echo "Starting build, parallel jobs: $(nproc)"
+          df -h /
+          free -h
+          # No single-threaded V=s retry: it re-runs the whole tree for hours and
+          # produces huge logs. Fail fast and list the broken packages instead.
           if ! make -j"$(nproc)" 2>&1 | tee build.log; then
-            echo "::warning::Parallel build failed, retrying single-threaded with V=s"
-            # -k: log every broken package, not just the first one.
-            make -j1 -k V=s 2>&1 | tee -a build.log
+            echo "::error::Build failed. Broken packages:"
+            grep -nE "ERROR: .* failed to build" build.log || true
+            echo "::group::Last 60 lines of build.log"
+            tail -n 60 build.log
+            echo "::endgroup::"
+            exit 1
           fi
           echo "::group::ccache stats"
           ccache -s || true
           echo "::endgroup::"
+          df -h /
 
       - name: Verify artifacts
         working-directory: ${{ github.workspace }}/istoreos
