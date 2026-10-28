@@ -32,6 +32,13 @@ for entry in "$REPO_DIR/files"/*; do
 		*)            cp -a "$entry" "$TREE/" ;;
 	esac
 done
+
+# smartdns is intentionally not shipped: make sure no copy survives, even if the
+# overlay in the repo still contains one.
+rm -rf "$TREE/package/luci/smartdns" \
+       "$TREE/package/luci/luci-app-smartdns" \
+       "$TREE/dl"/smartdns-*.tar.gz
+
 chmod 0755 "$TREE/package/luci/quickstart/files/"*.init \
            "$TREE/package/luci/quickstart/files/"*.hotplug \
            "$TREE/package/luci/quickstart/files/"*.uci-default \
@@ -54,8 +61,7 @@ chmod 0755 "$TREE/files/usr/bin/cpuinfo" \
            "$TREE/package/luci/luci-app-dockerman/root/etc/init.d/dockerman" \
            "$TREE/package/luci/luci-app-autoreboot/root/etc/init.d/autoreboot" 2>/dev/null || true
 
-for _tgz in "$TREE/package/luci/smartdns"/smartdns-*.tar.gz \
-            "$TREE/package/luci/tailscale"/tailscale-*.tar.gz; do
+for _tgz in "$TREE/package/luci/tailscale"/tailscale-*.tar.gz; do
 	[ -e "$_tgz" ] || continue
 	mkdir -p "$TREE/dl"
 	cp -f "$_tgz" "$TREE/dl/"
@@ -171,10 +177,8 @@ check "seed enables bridge feature"  grep -q 'CONFIG_NSS_DRV_BRIDGE_ENABLE=y' "$
 check "seed enables vlan feature"    grep -q 'CONFIG_NSS_DRV_VLAN_ENABLE=y' "$REPO_DIR/config/nn6000.seed"
 check "nf_conntrack exp_event guard"  test -f "$TREE/target/linux/qualcommax/patches-6.12/0608-1-nf_conntrack-guard-null-expect-event-cb.patch"
 check "ecm conntrack_max raised to 65535" grep -q 'nf_conntrack_max=65535' "$TREE/package/nss/qca-nss-ecm/files/qca-nss-ecm.sysctl"
-check "vendored smartdns package"     test -f "$TREE/package/luci/smartdns/Makefile"
-check "smartdns pinned to 48.4"       grep -q 'PKG_VERSION:=48.4' "$TREE/package/luci/smartdns/Makefile"
-check "smartdns source staged to dl/" test -f "$TREE/dl/smartdns-Release48.4.tar.gz"
-check "vendored luci-app-smartdns"    test -f "$TREE/package/luci/luci-app-smartdns/Makefile"
+refute "smartdns removed"             test -e "$TREE/package/luci/smartdns"
+refute "luci-app-smartdns removed"    test -e "$TREE/package/luci/luci-app-smartdns"
 check "vendored luci-app-adguardhome" test -f "$TREE/package/luci/luci-app-adguardhome/Makefile"
 check "adguardhome core updater"      test -f "$TREE/package/luci/luci-app-adguardhome/root/usr/share/AdGuardHome/update_core.sh"
 check "vendored tailscale package"    test -f "$TREE/package/luci/tailscale/Makefile"
