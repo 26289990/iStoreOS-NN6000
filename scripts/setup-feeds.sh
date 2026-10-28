@@ -68,11 +68,7 @@ echo "==> feeds update wechatpush (可选) ..."
 #
 # 原始脚本特意从 iStoreOS 自带 feed 里删掉了 dockerman / ttyd / hd-idle /
 # samba4 / smartdns / adguardhome / tailscale，改用 iStoreOS 自己的版本。
-# 现在加了 ImmortalWrt feed 并且 install -a，会把这些同名包又装回来，造成
-# 重复定义。这里只删 ImmortalWrt feed 里的那份，iStoreOS 自带的（包括
-# package/luci/smartdns 和 feeds/packages 里的 smartdns）一律保留。
-#
-# daed / dae：编译失败，不要。
+# 这里只删 ImmortalWrt feed 里的同名包，避免 install -a 把它们装回来。
 # ============================================================
 echo "==> prune conflicting packages from immortal feeds ..."
 for f in feeds/immortal_luci feeds/immortal_packages; do
@@ -81,15 +77,43 @@ for f in feeds/immortal_luci feeds/immortal_packages; do
 		-name luci-app-dockerman -o -name luci-lib-docker \
 		-o -name luci-app-ttyd -o -name luci-app-hd-idle \
 		-o -name luci-app-samba4 -o -name luci-app-adguardhome \
-		-o -name luci-app-smartdns -o -name smartdns \
 		-o -name tailscale \
-		-o -name daed -o -name luci-app-daed \
-		-o -name dae -o -name luci-app-dae \
 	\) -prune -exec rm -rf {} +
 done
 
 # ============================================================
-# 3.2 安装
+# 3.2 彻底移除 smartdns / daed / dae（编译失败，源头去掉）
+#
+# 必须在 feeds install 之前，把所有来源的源码目录都删掉：
+#   - iStoreOS 源码树自带：package/luci/smartdns
+#   - iStoreOS packages feed：feeds/packages/net/smartdns
+#   - ImmortalWrt feeds 里的 smartdns / luci-app-smartdns / daed / dae
+# 否则 workflow 里后续的 `feeds install -a` 会把它们重新装回来。
+# ============================================================
+echo "==> remove smartdns / daed / dae from every source ..."
+rm -rf package/luci/smartdns package/luci/luci-app-smartdns
+
+for f in feeds/*; do
+	[ -d "$f" ] || continue
+	find "$f" -maxdepth 4 \( \
+		-name smartdns -o -name luci-app-smartdns \
+		-o -name luci-i18n-smartdns-zh-cn \
+		-o -name daed -o -name luci-app-daed \
+		-o -name dae -o -name luci-app-dae -o -name luci-app-daede \
+	\) -prune -exec rm -rf {} +
+done
+
+# 清掉之前可能已经建立的软链接
+if [ -d package/feeds ]; then
+	find package/feeds -maxdepth 2 \( \
+		-name smartdns -o -name luci-app-smartdns \
+		-o -name daed -o -name luci-app-daed \
+		-o -name dae -o -name luci-app-dae -o -name luci-app-daede \
+	\) -exec rm -rf {} +
+fi
+
+# ============================================================
+# 3.3 安装
 # ============================================================
 echo "==> feeds install immortal_luci ..."
 ./scripts/feeds install -a -p immortal_luci
@@ -100,6 +124,11 @@ echo "==> feeds install immortal_packages ..."
 echo "==> feeds install wechatpush (可选) ..."
 ./scripts/feeds install -p wechatpush luci-app-wechatpush \
 	|| echo "!! warning: luci-app-wechatpush install failed, skipped" >&2
+
+# 确认没有残留
+echo "==> leftover check (should print nothing):"
+find package feeds -maxdepth 4 \( -name smartdns -o -name luci-app-smartdns \
+	-o -name daed -o -name luci-app-daed \) 2>/dev/null || true
 
 # ============================================================
 # 4. 应用仓库补丁（失败即退出，与原始脚本行为一致）
