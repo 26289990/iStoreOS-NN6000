@@ -1,6 +1,7 @@
 # Put your custom commands here that should be executed once
 # the system init finished. By default this file does nothing.
 
+(sleep 30; echo allow-untrusted > /etc/apk/config) &
 (while true; do sleep 3480; sync; echo 3 > /proc/sys/vm/drop_caches; done) &
 
 exit 0
