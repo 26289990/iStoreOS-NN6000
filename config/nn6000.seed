@@ -258,3 +258,11 @@ CONFIG_PACKAGE_flock=y
 #常用插件
 CONFIG_PACKAGE_luci-app-cifs-mount=y
 CONFIG_PACKAGE_luci-app-commands=y
+# 轻量网关的依赖插件
+CONFIG_PACKAGE_nginx-mod-stream=y
+CONFIG_PACKAGE_nginx-ssl=y
+CONFIG_PACKAGE_nginx-ssl-util=y
+CONFIG_PACKAGE_libubus20260925=y
+CONFIG_PACKAGE_libubox20260721=y
+CONFIG_PACKAGE_wget-nossl=y
+CONFIG_PACKAGE_libpcre2=y
