@@ -1,0 +1,61 @@
+#!/bin/sh
+# First-boot: install fixed-name local APKs (no globs), offline, keep log/APKs on failure
+
+DIR=/etc/uci-defaults/prebuilt-apks
+LOG=/tmp/prebuilt-apks.log
+
+sleep 15
+echo "start $(date)" > "$LOG"
+
+if [ ! -d "$DIR" ]; then
+	echo "missing $DIR" >> "$LOG"
+	logger -t prebuilt-apks "missing $DIR"
+	exit 0
+fi
+
+# 全名，不用通配符（按依赖顺序）
+set -- \
+	"$DIR"/v2ray-geoip-202610290022.1.apk \
+	"$DIR"/v2ray-geosite-202610302203.1.apk \
+	"$DIR"/daed-router-0.6.90-aarch64_cortex-a53.apk \
+	"$DIR"/luci-app-daed-router-0.6.90-service-control.apk \
+	"$DIR"/luci-app-device-gateway_1.0.0-r1_all.apk \
+	"$DIR"/25.12-gecoosac-2.2.20251015-r4-aarch64.apk \
+    "$DIR"/25.12-luci-app-gecoosac-2.2-r4-aarch64.apk \
+    "$DIR"/25.12-luci-i18n-gecoosac-zh-cn-26.221.82261-f10af17-aarch64.apk \
+	"$DIR"/minigate.apk
+
+files=
+for f in "$@"; do
+	if [ ! -f "$f" ]; then
+		echo "skip missing: $f" >> "$LOG"
+		continue
+	fi
+	files="$files $f"
+done
+
+if [ -z "$files" ]; then
+	echo "no apk files present" >> "$LOG"
+	logger -t prebuilt-apks "no apk files"
+	exit 0
+fi
+
+echo "INSTALL$files" >> "$LOG"
+ls -la $files >> "$LOG" 2>&1
+
+# 强制不联网 + 允许未签名 + 覆盖冲突
+# --force-broken-world：依赖/世界集合不完整时仍尽量装（若当前 apk 不支持会忽略或报错，可再去掉）
+if apk add --no-network --allow-untrusted --force-overwrite --force-broken-world $files >> "$LOG" 2>&1 \
+	|| apk add --no-network --allow-untrusted --force-overwrite $files >> "$LOG" 2>&1
+then
+	echo "OK $(date)" >> "$LOG"
+	logger -t prebuilt-apks "OK"
+	rm -rf "$DIR"
+	echo "removed $DIR" >> "$LOG"
+else
+	echo "FAIL $(date)" >> "$LOG"
+	logger -t prebuilt-apks "FAIL, keep $DIR and $LOG"
+	# 失败：不删 APK，方便你 cat /tmp/prebuilt-apks.log 排查
+fi
+
+exit 0
